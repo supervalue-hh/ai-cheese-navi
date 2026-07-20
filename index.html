@@ -12,18 +12,24 @@
     --card:#ffffff;
     --ink:#2b2320;
     --sub:#7a6f64;
-    --accent:#8a3b2f;
+    --accent:#9e2b25;
     --accent-soft:#f3e3dd;
+    --gold:#b08d57;
+    --gold-soft:#f4ecdd;
     --line:#e7ddd2;
     --tag-bg:#f1ece2;
     --tag-ink:#5c4a3a;
     --shadow:0 6px 18px rgba(60,40,20,0.08);
+    --serif:'Georgia','Times New Roman','Yu Mincho','游明朝','Hiragino Mincho ProN',serif;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
   body{
     font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
-    background:var(--bg);
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(176,141,87,0.07), transparent 60%),
+      radial-gradient(900px 500px at -10% 35%, rgba(158,43,37,0.04), transparent 55%),
+      var(--bg);
     color:var(--ink);
     display:flex;
     flex-direction:column;
@@ -90,8 +96,19 @@
   .pickup-section{width:100%;max-width:640px;margin-top:22px;}
   .pickup-title{
     font-size:15px;font-weight:700;color:var(--accent);
-    margin:0 4px 10px;display:flex;align-items:center;gap:6px;
+    margin:0 4px 10px;display:flex;align-items:baseline;gap:10px;
+    font-family:var(--serif);letter-spacing:.04em;
   }
+  .pickup-title .pt-en{
+    font-style:italic;font-weight:400;color:var(--gold);
+    font-size:12px;letter-spacing:.18em;
+  }
+  .pickup-card{position:relative;overflow:hidden;}
+  .pickup-card::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--gold),#d9c49a);
+  }
+  .pickup-card .pk-name{font-family:var(--serif);}
   .pickup-row{
     display:flex;gap:12px;overflow-x:auto;
     padding:2px 2px 10px;
@@ -176,8 +193,24 @@
     animation:fadeIn .25s ease;
   }
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
-  .result-name{font-size:clamp(22px,4vw,28px);font-weight:700;margin:0 0 2px;}
-  .result-formal{color:var(--sub);font-size:14px;margin-bottom:14px;}
+  .result-entype{
+    font-family:var(--serif);font-style:italic;
+    color:var(--gold);font-size:13px;letter-spacing:.2em;
+    margin-bottom:4px;
+  }
+  .result-name{font-size:clamp(22px,4vw,28px);font-weight:700;margin:0 0 2px;font-family:var(--serif);letter-spacing:.02em;}
+  .result-formal{color:var(--sub);font-size:14px;margin-bottom:14px;font-family:var(--serif);font-style:italic;}
+  .gold-rule{
+    border:none;height:1px;margin:16px 0 4px;
+    background:linear-gradient(90deg,transparent,var(--gold) 20%,var(--gold) 80%,transparent);
+    opacity:.55;
+  }
+  .badge.teiki{background:linear-gradient(135deg,#c3a068,#a3824a);color:#fff;}
+  .badge.kisetsu{background:#3f7a4f;color:#fff;}
+  .section-label .sl-en{
+    font-family:var(--serif);font-style:italic;font-weight:400;
+    color:var(--gold);letter-spacing:.15em;margin-right:8px;
+  }
   .badge-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
   .badge{
     background:var(--tag-bg);color:var(--tag-ink);
@@ -209,17 +242,28 @@
 
   footer{
     text-align:center;color:var(--sub);font-size:11px;
-    padding:14px 10px 20px;opacity:.6;
+    padding:14px 10px 20px;opacity:.75;
   }
+  .footer-credit{margin-bottom:4px;letter-spacing:.03em;}
+  .fc-serif{font-family:var(--serif);font-style:italic;color:var(--gold);}
   .hidden{display:none !important;}
 
   /* --- decoration: header accent + logo mark (Mycella風、白/クリーム地に赤の差し色ひとつ) --- */
   header{background:linear-gradient(180deg,#ffffff 0%,#fdfaf6 100%);color:var(--ink);border-bottom:3px solid var(--accent);}
-  header h1{color:var(--accent);font-weight:700;}
+  header h1{
+    color:var(--accent);font-weight:700;
+    font-family:var(--serif);letter-spacing:.06em;
+  }
   header h1::before{
-    content:"";display:inline-block;width:10px;height:10px;
-    background:var(--accent);border-radius:50% 50% 50% 0;
-    transform:rotate(45deg);margin-right:10px;vertical-align:middle;
+    content:"";display:inline-block;width:16px;height:13px;
+    background:var(--accent);
+    clip-path:polygon(0 0, 100% 50%, 0 100%);
+    margin-right:10px;vertical-align:baseline;
+  }
+  .en-sub{
+    font-family:var(--serif);font-style:italic;
+    color:var(--gold);font-size:clamp(12px,1.8vw,15px);
+    letter-spacing:.22em;margin-top:2px;
   }
   header .store{color:var(--sub);}
   .voice-toggle-btn{
@@ -282,13 +326,14 @@
 <header>
   <button class="voice-toggle-btn" id="voiceToggleBtn" onclick="toggleVoice()">🔊 音声ON</button>
   <h1>AIチーズナビ</h1>
+  <div class="en-sub">European Cheese Selection</div>
   <div class="store" id="storeName">店舗名</div>
   <div class="about-line">本場ヨーロッパから直輸入する日本マイセラ株式会社の厳選チーズをご紹介します</div>
 </header>
 
 <main>
   <div class="pickup-section" id="pickupSection">
-    <div class="pickup-title">🧀 今月のおすすめチーズ</div>
+    <div class="pickup-title">今月のおすすめチーズ<span class="pt-en">Monthly Selection</span></div>
     <div class="pickup-row" id="pickupRow"></div>
   </div>
 
@@ -303,12 +348,15 @@
   <div class="result-card hidden" id="resultCard"></div>
 </main>
 
-<footer id="buildStamp"></footer>
+<footer>
+  <div class="footer-credit">Cheese imported by <span class="fc-serif">Nippon Mycella Co., Ltd.</span> ｜ チーズ提供：日本マイセラ株式会社</div>
+  <div id="buildStamp"></div>
+</footer>
 
 <script>
 (function(){
   const DATA = (typeof CHEESE_DATA !== 'undefined') ? CHEESE_DATA : [];
-  const BUILD_VER = '1.2.0';
+  const BUILD_VER = '1.3.0';
   const BUILD_TIME = '2026-07-20';
   document.getElementById('buildStamp').textContent = 'AIチーズナビ v' + BUILD_VER + ' / ' + BUILD_TIME;
 
@@ -547,6 +595,12 @@
     'ハード・セミハード':'#a5772e','シェーブル':'#7d7d7d','プロセス':'#8a5a3b',
     'クロテッドクリーム':'#b05a7a','クラッカー&フード':'#96865a','グレーテッド等':'#6b7a8a'
   };
+  // マイセラのカタログに合わせた英語カテゴリ名
+  const TYPE_EN = {
+    '白カビ':'White Mold','青カビ':'Blue Mold','ウォッシュ':'Wash Type','フレッシュ':'Fresh Type',
+    'ハード・セミハード':'Hard & SemiHard','シェーブル':'Chevre','プロセス':'Processed',
+    'クロテッドクリーム':'Clotted Cream','クラッカー&フード':'Cracker & Foods','グレーテッド等':'Ready to Eat'
+  };
   function typeChipHtml(type){
     const col = TYPE_COLORS[type] || '#7a6f64';
     return `<span class="cand-type" style="color:${col};background:${col}1a;">${escapeHtml(type)}</span>`;
@@ -565,22 +619,30 @@
     const pairingTags = wordsToTags(c['料理ペアリング']);
     const keywordTags = wordsToTags(c['ペアリングキーワード']);
 
+    const nyuka = c['入荷区分'] || '';
+    const nyukaBadge =
+      nyuka === '定期入荷品' ? `<span class="badge teiki">定期入荷品</span>` :
+      nyuka === '季節限定入荷品' ? `<span class="badge kisetsu">季節限定入荷品</span>` : '';
+
     resultCard.innerHTML = `
+      <div class="result-entype">${escapeHtml(TYPE_EN[c['種別']] || '')}</div>
       <div class="result-name">${escapeHtml(c['商品名略称'])}</div>
       <div class="result-formal">${escapeHtml(c['正式商品名'] || '')}</div>
       <div class="badge-row">
         <span class="badge accent" style="background:${TYPE_COLORS[c['種別']] || 'var(--accent)'};">${escapeHtml(c['種別'])}</span>
         <span class="badge">${escapeHtml(c['産地国'])}</span>
         ${c['原料乳'] ? `<span class="badge">${escapeHtml(c['原料乳'])}乳</span>` : ''}
+        ${nyukaBadge}
       </div>
-      <div class="section-label">味わい</div>
+      <hr class="gold-rule">
+      <div class="section-label"><span class="sl-en">Taste</span>味わい</div>
       <div class="flavor-text">${escapeHtml(c['味わい'])}</div>
-      <div class="section-label">こんな食べ方・料理と相性◎</div>
+      <div class="section-label"><span class="sl-en">Pairing</span>こんな食べ方・料理と相性◎</div>
       <div class="tag-cloud">
         ${pairingTags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}
       </div>
       ${keywordTags.length ? `
-      <div class="section-label">関連キーワード</div>
+      <div class="section-label"><span class="sl-en">Keywords</span>関連キーワード</div>
       <div class="keyword-cloud">
         ${keywordTags.map(t => `<span class="kw">${escapeHtml(t)}</span>`).join('')}
       </div>` : ''}
