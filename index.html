@@ -87,6 +87,52 @@
     border-radius:14px 14px 0 0;
   }
 
+  .pickup-section{width:100%;max-width:640px;margin-top:22px;}
+  .pickup-title{
+    font-size:15px;font-weight:700;color:var(--accent);
+    margin:0 4px 10px;display:flex;align-items:center;gap:6px;
+  }
+  .pickup-row{
+    display:flex;gap:12px;overflow-x:auto;
+    padding:2px 2px 10px;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x mandatory;
+  }
+  .pickup-card{
+    flex:0 0 auto;
+    width:150px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    padding:14px;
+    text-align:left;
+    scroll-snap-align:start;
+    cursor:pointer;
+  }
+  .pickup-card:active{background:var(--accent-soft);}
+  .pickup-card .pk-name{font-size:14px;font-weight:700;line-height:1.35;margin-bottom:6px;display:block;}
+  .pickup-card .pk-flavor{font-size:11.5px;color:var(--sub);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+
+  .gyo-row{
+    width:100%;max-width:640px;
+    display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
+    margin-top:14px;
+  }
+  .gyo-chip{
+    padding:14px 0;
+    border-radius:12px;
+    background:var(--card);
+    border:1.5px solid var(--line);
+    color:var(--ink);
+    font-size:16px;font-weight:600;
+    cursor:pointer;
+    text-align:center;
+  }
+  .gyo-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .gyo-chip.all{grid-column:span 5;padding:10px 0;font-size:14px;color:var(--sub);}
+  .gyo-chip.all.active{color:#fff;}
+
   .type-row{
     width:100%;max-width:640px;
     display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
@@ -176,6 +222,13 @@
     transform:rotate(45deg);margin-right:10px;vertical-align:middle;
   }
   header .store{color:var(--sub);}
+  .voice-toggle-btn{
+    position:absolute;top:16px;right:16px;
+    font-size:12px;font-weight:700;white-space:nowrap;
+    padding:7px 12px;border:1px solid var(--line);border-radius:20px;
+    background:var(--card);color:var(--sub);cursor:pointer;
+  }
+  .voice-toggle-btn:active{background:var(--accent-soft);}
   .about-line{
     max-width:640px;margin:2px auto 0;color:var(--sub);
     font-size:12px;line-height:1.6;text-align:center;
@@ -227,18 +280,21 @@
 <body>
 
 <header>
+  <button class="voice-toggle-btn" id="voiceToggleBtn" onclick="toggleVoice()">🔊 音声ON</button>
   <h1>AIチーズナビ</h1>
   <div class="store" id="storeName">店舗名</div>
   <div class="about-line">本場ヨーロッパから直輸入する日本マイセラ株式会社の厳選チーズをご紹介します</div>
 </header>
 
 <main>
-  <div class="search-wrap">
-    <input id="searchInput" type="text" placeholder="下のボタンでチーズの名前を入力…（例：カマンベール）" autocomplete="off" readonly>
+  <div class="pickup-section" id="pickupSection">
+    <div class="pickup-title">🧀 今月のおすすめチーズ</div>
+    <div class="pickup-row" id="pickupRow"></div>
   </div>
-  <div class="kana-board" id="kanaBoard"></div>
-  <div id="candidateList"></div>
-  <div class="search-hint">気になるチーズを選ぶと、味わいと相性の良い食べ方をご紹介します<br>濁点・小さい文字はなくてもOK（例：「しえらーる」でジェラールが見つかります）</div>
+
+  <div class="search-hint">チーズの名前の行と種類で絞り込めます。気になるチーズを選ぶと詳しくご紹介します</div>
+
+  <div class="gyo-row" id="gyoRow"></div>
 
   <div class="type-row" id="typeRow"></div>
 
@@ -252,19 +308,84 @@
 <script>
 (function(){
   const DATA = (typeof CHEESE_DATA !== 'undefined') ? CHEESE_DATA : [];
-  const BUILD_VER = '1.1.0';
+  const BUILD_VER = '1.2.0';
   const BUILD_TIME = '2026-07-20';
   document.getElementById('buildStamp').textContent = 'AIチーズナビ v' + BUILD_VER + ' / ' + BUILD_TIME;
 
-  const searchInput = document.getElementById('searchInput');
-  const candidateList = document.getElementById('candidateList');
+  // --- 音声読み上げ（ElevenLabs、AIソムリエと同じWorker経由・APIキーはWorker側に隠蔽） ---
+  var _VOICE_HAMANO   = 'lfS4FNq2QJ0xr8H1zM7s';
+  var _VOICE_HAYAKAWA = '7EJE8wGh8vEcDGpYYv8m';
+  var _VOICE_PRESET   = 'EbuvaInXUGWtpYRUnKLQ';
+  var _EL_WORKER = 'https://super-river-d169.hithithit1114.workers.dev';
+  var _EL_VOICE  = _VOICE_HAYAKAWA; // ← 声を変えたい場合はここを _VOICE_HAMANO 等に
+  var _voiceMuted = false;
+  var _audioUnlocked = false;
+  var _ttsAudio = null;
+  var _SILENT_MP3 = 'data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGuAD//////////////////////////////////////////////////////////////////8AAAA5TEFNRTMuMTAwAaUAAAAAAAAAABQ4JAMGQgAAOAAAA==';
+
+  function unlockAudio(){
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    try {
+      var a = new Audio(_SILENT_MP3);
+      a.play().catch(function(){});
+    } catch(e){}
+  }
+
+  function speakText(text){
+    if (_voiceMuted || !text) return;
+    try {
+      if (!_ttsAudio) _ttsAudio = new Audio();
+      _ttsAudio.volume = 1.0;
+      _ttsAudio.src = _EL_WORKER + '/?text=' + encodeURIComponent(text) + '&voice_id=' + encodeURIComponent(_EL_VOICE);
+      _ttsAudio.play().catch(function(e){ console.warn('play error:', e); });
+    } catch(e){}
+  }
+
+  window.toggleVoice = function(){
+    _voiceMuted = !_voiceMuted;
+    var btn = document.getElementById('voiceToggleBtn');
+    if (btn) btn.textContent = _voiceMuted ? '🔇 音声OFF' : '🔊 音声ON';
+    if (_voiceMuted && _ttsAudio) _ttsAudio.pause();
+  };
+
+  const gyoRow = document.getElementById('gyoRow');
   const typeRow = document.getElementById('typeRow');
   const browseList = document.getElementById('browseList');
   const resultCard = document.getElementById('resultCard');
+  const pickupSection = document.getElementById('pickupSection');
+  const pickupRow = document.getElementById('pickupRow');
+
+  // 「今月のおすすめ」枠。商品名略称で指定（月替わりで入れ替える想定。手動キュレーション）
+  const PICKUP_NAMES = [
+    'カマンベール・ジロ',
+    'キャステロ クリーミーブルー',
+    'モッツァレラ ブッファラ',
+    'ゴーダ',
+    'パルミジャーノレジャーノDOP',
+    'エポワス',
+    'ソワニヨン・フレッシュ・シェーブル・ハニー',
+    'クロテッドクリーム プレーン(170g)'
+  ];
+
+  function buildPickupRow(){
+    const items = PICKUP_NAMES
+      .map(name => DATA.find(c => c['商品名略称'] === name))
+      .filter(Boolean);
+    if (!items.length) { pickupSection.classList.add('hidden'); return; }
+    pickupRow.innerHTML = '';
+    items.forEach(c => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'pickup-card';
+      card.innerHTML = `<span class="pk-name">${escapeHtml(c['商品名略称'])}</span><span class="pk-flavor">${escapeHtml(c['味わい'])}</span>`;
+      card.onclick = () => showResult(c);
+      pickupRow.appendChild(card);
+    });
+  }
 
   const TYPES = ['白カビ','青カビ','ウォッシュ','フレッシュ','ハード・セミハード','シェーブル','プロセス','クロテッドクリーム'];
   let activeType = null;
-  let queryBuffer = '';
 
   // 濁点/半濁点を清音に畳み込む（キーボードは清音キーのみで、が→か等も拾えるように）
   const DAKUTEN_FOLD = {
@@ -320,88 +441,47 @@
     c._r = ov ? ov.split(/\s+/).map(norm) : [];
   });
 
-  // --- 50音キーボード ---
-  const KANA_ROWS = [
-    ['あ','い','う','え','お'],
-    ['か','き','く','け','こ'],
-    ['さ','し','す','せ','そ'],
-    ['た','ち','つ','て','と'],
-    ['な','に','ぬ','ね','の'],
-    ['は','ひ','ふ','へ','ほ'],
-    ['ま','み','む','め','も'],
-    ['や','','ゆ','','よ'],
-    ['ら','り','る','れ','ろ'],
-    ['わ','','を','','ん'],
+  // --- あ行〜わ行の絞り込みボタン ---
+  const GYO_LIST = [
+    {label:'あ行', chars:'あいうえお'},
+    {label:'か行', chars:'かきくけこ'},
+    {label:'さ行', chars:'さしすせそ'},
+    {label:'た行', chars:'たちつてと'},
+    {label:'な行', chars:'なにぬねの'},
+    {label:'は行', chars:'はひふへほ'},
+    {label:'ま行', chars:'まみむめも'},
+    {label:'や行', chars:'やゆよ'},
+    {label:'ら行', chars:'らりるれろ'},
+    {label:'わ行', chars:'わをん'}
   ];
-  const KANA_SMALL = ['っ','ゃ','ゅ','ょ','ー'];
+  let activeGyo = null;
 
-  function buildKanaBoard(){
-    const board = document.getElementById('kanaBoard');
-    board.innerHTML = '';
-    KANA_ROWS.forEach(row => {
-      const r = document.createElement('div');
-      r.className = 'kana-row';
-      row.forEach(k => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'kana-key' + (k === '' ? ' blank' : '');
-        btn.textContent = k || '　';
-        if (k) btn.onclick = () => onKanaTap(k);
-        r.appendChild(btn);
-      });
-      board.appendChild(r);
-    });
-    const smallRow = document.createElement('div');
-    smallRow.className = 'kana-row';
-    KANA_SMALL.forEach(k => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'kana-key';
-      btn.textContent = k;
-      btn.onclick = () => onKanaTap(k);
-      smallRow.appendChild(btn);
-    });
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'kana-key func wide';
-    back.textContent = '1文字消す';
-    back.onclick = () => onKanaBackspace();
-    smallRow.appendChild(back);
-    const clear = document.createElement('button');
-    clear.type = 'button';
-    clear.className = 'kana-key func wide';
-    clear.textContent = 'クリア';
-    clear.onclick = () => onKanaClear();
-    smallRow.appendChild(clear);
-    board.appendChild(smallRow);
+  // 商品の先頭音（読みがな辞書があればそちらを優先。濁点・小書きは正規化済みなので清音で判定できる）
+  function headChar(c){
+    const s = (c._r[0] || c._n);
+    return s.charAt(0);
   }
 
-  function onKanaTap(k){
-    queryBuffer += k;
-    searchInput.value = queryBuffer;
-    runSearch();
-  }
-  function onKanaBackspace(){
-    queryBuffer = queryBuffer.slice(0, -1);
-    searchInput.value = queryBuffer;
-    runSearch();
-  }
-  function onKanaClear(){
-    queryBuffer = '';
-    searchInput.value = '';
-    runSearch();
-  }
-  function runSearch(){
-    const q = queryBuffer.trim();
-    if (!q) {
-      candidateList.classList.remove('open');
-      typeRow.classList.remove('hidden');
-      renderBrowseList();
-      return;
-    }
-    browseList.classList.add('hidden');
-    hideResult();
-    renderCandidates(searchCandidates(q));
+  function buildGyoRow(){
+    gyoRow.innerHTML = '';
+    GYO_LIST.forEach(g => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'gyo-chip' + (activeGyo === g.label ? ' active' : '');
+      chip.textContent = g.label;
+      chip.onclick = () => {
+        activeGyo = (activeGyo === g.label) ? null : g.label; // 再タップで解除
+        buildGyoRow();
+        renderBrowseList();
+      };
+      gyoRow.appendChild(chip);
+    });
+    const allChip = document.createElement('button');
+    allChip.type = 'button';
+    allChip.className = 'gyo-chip all' + (activeGyo === null ? ' active' : '');
+    allChip.textContent = 'すべて表示';
+    allChip.onclick = () => { activeGyo = null; buildGyoRow(); renderBrowseList(); };
+    gyoRow.appendChild(allChip);
   }
 
   function buildTypeRow(){
@@ -426,11 +506,20 @@
 
   function renderBrowseList(){
     hideResult();
-    const list = (activeType ? DATA.filter(c => c['種別'] === activeType) : DATA)
+    const gyo = GYO_LIST.find(g => g.label === activeGyo);
+    const list = DATA
+      .filter(c => !activeType || c['種別'] === activeType)
+      .filter(c => !gyo || gyo.chars.includes(headChar(c)))
       .slice()
       .sort((a,b) => (a['商品名略称']||'').localeCompare(b['商品名略称'], 'ja'));
+    const cap = (activeGyo || activeType) ? list.length : 40; // 絞り込み中は全件表示
     browseList.innerHTML = '';
-    list.slice(0, 40).forEach(c => {
+    if (list.length === 0) {
+      browseList.innerHTML = '<div class="cand-empty">この条件のチーズはありません。別の行や種類をお試しください</div>';
+      browseList.classList.remove('hidden');
+      return;
+    }
+    list.slice(0, cap).forEach(c => {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'browse-item';
@@ -452,21 +541,6 @@
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function searchCandidates(query){
-    const q = norm(query);
-    if (!q) return [];
-    // 前方一致優先、なければ部分一致（誤爆を避けるため前方一致を上位に）
-    const starts = [];
-    const includes = [];
-    DATA.forEach(c => {
-      const hitStart = c._n.startsWith(q) || c._r.some(r => r.startsWith(q));
-      const hitInc = c._n.includes(q) || c._f.includes(q) || c._r.some(r => r.includes(q));
-      if (hitStart) { starts.push(c); }
-      else if (hitInc) { includes.push(c); }
-    });
-    return starts.concat(includes).slice(0, 20);
-  }
-
   // 種別ごとの色分け（装飾）
   const TYPE_COLORS = {
     '白カビ':'#8a7a55','青カビ':'#4a6b8a','ウォッシュ':'#b06a3b','フレッシュ':'#5a8a5f',
@@ -478,47 +552,15 @@
     return `<span class="cand-type" style="color:${col};background:${col}1a;">${escapeHtml(type)}</span>`;
   }
 
-  function renderCandidates(list){
-    candidateList.innerHTML = '';
-    if (list.length === 0) {
-      candidateList.innerHTML = '<div class="cand-empty">該当するチーズが見つかりませんでした。<br>濁点・小さい文字はなくても検索できます（例：「しえらーる」→ジェラール）</div>';
-      candidateList.classList.add('open');
-      return;
-    }
-    const head = document.createElement('div');
-    head.className = 'cand-count';
-    head.textContent = `${list.length}件みつかりました`;
-    candidateList.appendChild(head);
-    list.forEach(c => {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'cand-item';
-      item.innerHTML = `<span class="cand-name">${escapeHtml(c['商品名略称'])}</span>${typeChipHtml(c['種別'])}`;
-      item.onclick = () => {
-        queryBuffer = c['商品名略称'];
-        searchInput.value = queryBuffer;
-        candidateList.classList.remove('open');
-        showResult(c);
-      };
-      candidateList.appendChild(item);
-    });
-    candidateList.classList.add('open');
-  }
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-wrap') && !e.target.closest('.kana-board')) {
-      candidateList.classList.remove('open');
-    }
-  });
-
   function wordsToTags(str){
     return (str || '').split(/\s+/).filter(Boolean);
   }
 
   function showResult(c){
     typeRow.classList.add('hidden');
+    gyoRow.classList.add('hidden');
+    pickupSection.classList.add('hidden');
     browseList.classList.add('hidden');
-    candidateList.classList.remove('open');
 
     const pairingTags = wordsToTags(c['料理ペアリング']);
     const keywordTags = wordsToTags(c['ペアリングキーワード']);
@@ -545,11 +587,15 @@
       <button class="back-btn" id="backBtn">← 別のチーズを探す</button>
     `;
     resultCard.classList.remove('hidden');
+
+    const topPairing = pairingTags.slice(0, 2).join('と');
+    speakText(`${c['商品名略称']}です。${c['味わい']}${topPairing ? '。' + topPairing + 'によく合いますよ。' : ''}`);
+
     document.getElementById('backBtn').onclick = () => {
-      queryBuffer = '';
-      searchInput.value = '';
       hideResult();
       typeRow.classList.remove('hidden');
+      gyoRow.classList.remove('hidden');
+      pickupSection.classList.remove('hidden');
       renderBrowseList();
     };
     window.scrollTo({top:0, behavior:'smooth'});
@@ -564,12 +610,13 @@
   const IDLE_MS = 120000;
   let idleTimer = null;
   function goHome(){
-    queryBuffer = '';
-    searchInput.value = '';
     activeType = null;
+    activeGyo = null;
     hideResult();
-    candidateList.classList.remove('open');
     typeRow.classList.remove('hidden');
+    gyoRow.classList.remove('hidden');
+    pickupSection.classList.remove('hidden');
+    buildGyoRow();
     buildTypeRow();
     renderBrowseList();
     window.scrollTo({top:0});
@@ -579,8 +626,10 @@
     idleTimer = setTimeout(goHome, IDLE_MS);
   }
   ['click','touchstart','scroll'].forEach(ev => document.addEventListener(ev, resetIdle, {passive:true}));
+  ['click','touchstart'].forEach(ev => document.addEventListener(ev, unlockAudio, {passive:true, once:true}));
 
-  buildKanaBoard();
+  buildGyoRow();
+  buildPickupRow();
   buildTypeRow();
   renderBrowseList();
   resetIdle();
