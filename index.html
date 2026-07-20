@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>AIチーズナビ</title>
+<script src="cheese_data.js"></script>
+<style>
+  :root{
+    --bg:#faf7f2;
+    --card:#ffffff;
+    --ink:#2b2320;
+    --sub:#7a6f64;
+    --accent:#8a3b2f;
+    --accent-soft:#f3e3dd;
+    --line:#e7ddd2;
+    --tag-bg:#f1ece2;
+    --tag-ink:#5c4a3a;
+    --shadow:0 6px 18px rgba(60,40,20,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+  header{
+    background:var(--accent);
+    color:#fff;
+    padding:22px 24px 18px;
+    text-align:center;
+    box-shadow:var(--shadow);
+    position:relative;
+    z-index:5;
+  }
+  header h1{margin:0;font-size:clamp(24px,4vw,34px);letter-spacing:.03em;}
+  header .store{margin-top:4px;font-size:clamp(13px,2vw,16px);opacity:.9;}
+  main{flex:1;display:flex;flex-direction:column;align-items:center;padding:22px 16px 60px;width:100%;}
+  .search-wrap{width:100%;max-width:640px;position:relative;}
+  #searchInput{
+    width:100%;
+    font-size:clamp(18px,3vw,22px);
+    padding:16px 20px;
+    border-radius:16px;
+    border:2px solid var(--line);
+    outline:none;
+    background:var(--card);
+    box-shadow:var(--shadow);
+  }
+  #searchInput:focus{border-color:var(--accent);}
+  .search-hint{color:var(--sub);font-size:13px;margin:10px 4px 0;text-align:center;}
+  #candidateList{
+    width:100%;max-width:640px;
+    background:var(--card);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    max-height:38vh;
+    overflow-y:auto;
+    margin-top:12px;
+    display:none;
+  }
+  #candidateList.open{display:block;}
+  .cand-item{
+    background:var(--card);
+    color:var(--ink);
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+  .cand-item:last-child{border-bottom:none;}
+  .cand-item:hover,.cand-item:active{background:var(--accent-soft);}
+  .cand-name{font-size:17px;font-weight:600;}
+  .cand-type{font-size:12px;color:var(--sub);background:var(--tag-bg);padding:3px 10px;border-radius:999px;white-space:nowrap;}
+  .cand-empty{padding:20px;text-align:center;color:var(--sub);line-height:1.7;}
+  .cand-count{
+    padding:8px 18px;font-size:12px;color:var(--sub);
+    border-bottom:1px solid var(--line);background:var(--bg);
+    border-radius:14px 14px 0 0;
+  }
+
+  .type-row{
+    width:100%;max-width:640px;
+    display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+    margin-top:18px;
+  }
+  .type-chip{
+    padding:8px 16px;
+    border-radius:999px;
+    background:var(--card);
+    border:1.5px solid var(--line);
+    color:var(--sub);
+    font-size:13px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .type-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  .browse-list{
+    width:100%;max-width:640px;
+    margin-top:16px;
+  }
+  .browse-item{
+    background:var(--card);
+    color:var(--ink);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    padding:14px 18px;
+    margin-bottom:10px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
+    cursor:pointer;
+  }
+  .browse-item:active{background:var(--accent-soft);}
+
+  .result-card{
+    width:100%;max-width:640px;
+    background:var(--card);
+    border-radius:20px;
+    box-shadow:var(--shadow);
+    padding:26px 24px 30px;
+    margin-top:6px;
+    animation:fadeIn .25s ease;
+  }
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .result-name{font-size:clamp(22px,4vw,28px);font-weight:700;margin:0 0 2px;}
+  .result-formal{color:var(--sub);font-size:14px;margin-bottom:14px;}
+  .badge-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+  .badge{
+    background:var(--tag-bg);color:var(--tag-ink);
+    padding:6px 14px;border-radius:999px;font-size:13px;
+  }
+  .badge.accent{background:var(--accent);color:#fff;}
+  .section-label{
+    font-size:13px;color:var(--sub);font-weight:600;
+    margin:18px 0 6px;letter-spacing:.05em;
+  }
+  .flavor-text{font-size:16px;line-height:1.7;}
+  .tag-cloud{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag-cloud .tag{
+    background:var(--accent-soft);color:var(--accent);
+    padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;
+  }
+  .keyword-cloud{display:flex;flex-wrap:wrap;gap:6px;}
+  .keyword-cloud .kw{
+    background:var(--bg);border:1px solid var(--line);color:var(--sub);
+    padding:4px 10px;border-radius:999px;font-size:12px;
+  }
+  .back-btn{
+    display:inline-block;margin-top:22px;
+    background:none;border:1.5px solid var(--line);
+    color:var(--sub);padding:10px 22px;border-radius:999px;
+    font-size:14px;cursor:pointer;
+  }
+  .back-btn:active{background:var(--accent-soft);}
+
+  footer{
+    text-align:center;color:var(--sub);font-size:11px;
+    padding:14px 10px 20px;opacity:.6;
+  }
+  .hidden{display:none !important;}
+
+  /* --- decoration: header accent + logo mark (Mycella風、白/クリーム地に赤の差し色ひとつ) --- */
+  header{background:linear-gradient(180deg,#ffffff 0%,#fdfaf6 100%);color:var(--ink);border-bottom:3px solid var(--accent);}
+  header h1{color:var(--accent);font-weight:700;}
+  header h1::before{
+    content:"";display:inline-block;width:10px;height:10px;
+    background:var(--accent);border-radius:50% 50% 50% 0;
+    transform:rotate(45deg);margin-right:10px;vertical-align:middle;
+  }
+  header .store{color:var(--sub);}
+  .about-line{
+    max-width:640px;margin:2px auto 0;color:var(--sub);
+    font-size:12px;line-height:1.6;text-align:center;
+  }
+
+  /* --- 50音キーボード --- */
+  #searchInput[readonly]{background:var(--card);caret-color:var(--accent);}
+  .kana-board{
+    width:100%;max-width:640px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    padding:12px;
+    margin-top:12px;
+  }
+  .kana-row{display:flex;gap:5px;margin-bottom:5px;}
+  .kana-key{
+    flex:1;
+    text-align:center;
+    padding:9px 0;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:15px;
+    color:var(--ink);
+    cursor:pointer;
+    user-select:none;
+  }
+  .kana-key:active{background:var(--accent-soft);border-color:var(--accent);}
+  .kana-key.wide{flex:1.6;font-size:13px;color:var(--sub);}
+  .kana-key.func{background:var(--accent);color:#fff;border-color:var(--accent);font-size:13px;}
+  .kana-key.blank{visibility:hidden;pointer-events:none;}
+
+  button.kana-key,button.type-chip,button.cand-item,button.browse-item{
+    font-family:inherit;
+    font-size:inherit;
+    margin:0;
+    appearance:none;
+    -webkit-appearance:none;
+    outline:none;
+    width:100%;
+    text-align:center;
+    cursor:pointer;
+  }
+  button.cand-item,button.browse-item{text-align:left;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AIチーズナビ</h1>
+  <div class="store" id="storeName">店舗名</div>
+  <div class="about-line">本場ヨーロッパから直輸入する日本マイセラ株式会社の厳選チーズをご紹介します</div>
+</header>
+
+<main>
+  <div class="search-wrap">
+    <input id="searchInput" type="text" placeholder="下のボタンでチーズの名前を入力…（例：カマンベール）" autocomplete="off" readonly>
+  </div>
+  <div class="kana-board" id="kanaBoard"></div>
+  <div id="candidateList"></div>
+  <div class="search-hint">気になるチーズを選ぶと、味わいと相性の良い食べ方をご紹介します<br>濁点・小さい文字はなくてもOK（例：「しえらーる」でジェラールが見つかります）</div>
+
+  <div class="type-row" id="typeRow"></div>
+
+  <div class="browse-list" id="browseList"></div>
+
+  <div class="result-card hidden" id="resultCard"></div>
+</main>
+
+<footer id="buildStamp"></footer>
+
+<script>
+(function(){
+  const DATA = (typeof CHEESE_DATA !== 'undefined') ? CHEESE_DATA : [];
+  const BUILD_VER = '1.1.0';
+  const BUILD_TIME = '2026-07-20';
+  document.getElementById('buildStamp').textContent = 'AIチーズナビ v' + BUILD_VER + ' / ' + BUILD_TIME;
+
+  const searchInput = document.getElementById('searchInput');
+  const candidateList = document.getElementById('candidateList');
+  const typeRow = document.getElementById('typeRow');
+  const browseList = document.getElementById('browseList');
+  const resultCard = document.getElementById('resultCard');
+
+  const TYPES = ['白カビ','青カビ','ウォッシュ','フレッシュ','ハード・セミハード','シェーブル','プロセス','クロテッドクリーム'];
+  let activeType = null;
+  let queryBuffer = '';
+
+  // 濁点/半濁点を清音に畳み込む（キーボードは清音キーのみで、が→か等も拾えるように）
+  const DAKUTEN_FOLD = {
+    'が':'か','ぎ':'き','ぐ':'く','げ':'け','ご':'こ',
+    'ざ':'さ','じ':'し','ず':'す','ぜ':'せ','ぞ':'そ',
+    'だ':'た','ぢ':'ち','づ':'つ','で':'て','ど':'と',
+    'ば':'は','び':'ひ','ぶ':'ふ','べ':'へ','ぼ':'ほ',
+    'ぱ':'は','ぴ':'ひ','ぷ':'ふ','ぺ':'へ','ぽ':'ほ',
+    'ゔ':'う'
+  };
+
+  // 小書き文字を大きい文字に畳み込む（キーボードにない ぇ ぉ 等も、え お で照合できるように）
+  const SMALL_FOLD = {
+    'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お',
+    'ゃ':'や','ゅ':'ゆ','ょ':'よ','っ':'つ','ゎ':'わ'
+  };
+
+  function norm(s){
+    let t = (s || '')
+      .toString()
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)) // 全角英数→半角
+      .toLowerCase()
+      .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)); // カタカナ→ひらがな粗変換
+    t = t.replace(/[・\s()（）&＆'']/g, ''); // 中黒・空白・記号を無視
+    t = t.replace(/[゙゚]/g, ''); // 結合濁点記号を除去
+    t = t.replace(/[がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽゔ]/g, ch => DAKUTEN_FOLD[ch] || ch);
+    t = t.replace(/[ぁぃぅぇぉゃゅょっゎ]/g, ch => SMALL_FOLD[ch] || ch);
+    t = t.replace(/ー/g, ''); // 長音の有無も吸収（クエリ側も同じ正規化を通るため対称）
+    t = t.replace(/(.)\1+/g, '$1'); // 連続同一文字を圧縮（ッの畳み込みで生じる二重音を吸収。対称なので安全）
+    return t;
+  }
+
+  // 英数字・漢字始まりなど、かな入力では届かない商品名への読みがな辞書
+  const READING_OVERRIDES = {
+    'NZレッドチェダー': 'えぬぜっとれっどちぇだー にゅーじーらんどれっどちぇだー',
+    'NZパルメザン粉': 'えぬぜっとぱるめざんこ にゅーじーらんどぱるめざんこ',
+    'USレッドチェダー': 'ゆーえすれっどちぇだー あめりかれっどちぇだー',
+    'BUKO クリームチーズ': 'ぶこくりーむちーず',
+    '3種アソート': 'さんしゅあそーと',
+    '冷凍ルパックバター(有塩・無塩)': 'れいとうるぱっくばたー るぱっくばたー',
+    'ゲランド塩のバター': 'げらんどしおのばたー',
+    'ゲランド塩のミニバター': 'げらんどしおのみにばたー',
+    'オーガニック3種の木の実ミックス': 'おーがにっくさんしゅのきのみみっくす',
+    'ふりかけチーズプレミアム': 'ふりかけちーずぷれみあむ',
+    'おつまみチーズパック': 'おつまみちーずぱっく'
+  };
+
+  // 検索用の正規化キャッシュを事前構築
+  DATA.forEach(c => {
+    c._n = norm(c['商品名略称']);
+    c._f = norm(c['正式商品名']);
+    const ov = READING_OVERRIDES[c['商品名略称']];
+    c._r = ov ? ov.split(/\s+/).map(norm) : [];
+  });
+
+  // --- 50音キーボード ---
+  const KANA_ROWS = [
+    ['あ','い','う','え','お'],
+    ['か','き','く','け','こ'],
+    ['さ','し','す','せ','そ'],
+    ['た','ち','つ','て','と'],
+    ['な','に','ぬ','ね','の'],
+    ['は','ひ','ふ','へ','ほ'],
+    ['ま','み','む','め','も'],
+    ['や','','ゆ','','よ'],
+    ['ら','り','る','れ','ろ'],
+    ['わ','','を','','ん'],
+  ];
+  const KANA_SMALL = ['っ','ゃ','ゅ','ょ','ー'];
+
+  function buildKanaBoard(){
+    const board = document.getElementById('kanaBoard');
+    board.innerHTML = '';
+    KANA_ROWS.forEach(row => {
+      const r = document.createElement('div');
+      r.className = 'kana-row';
+      row.forEach(k => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kana-key' + (k === '' ? ' blank' : '');
+        btn.textContent = k || '　';
+        if (k) btn.onclick = () => onKanaTap(k);
+        r.appendChild(btn);
+      });
+      board.appendChild(r);
+    });
+    const smallRow = document.createElement('div');
+    smallRow.className = 'kana-row';
+    KANA_SMALL.forEach(k => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'kana-key';
+      btn.textContent = k;
+      btn.onclick = () => onKanaTap(k);
+      smallRow.appendChild(btn);
+    });
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'kana-key func wide';
+    back.textContent = '1文字消す';
+    back.onclick = () => onKanaBackspace();
+    smallRow.appendChild(back);
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'kana-key func wide';
+    clear.textContent = 'クリア';
+    clear.onclick = () => onKanaClear();
+    smallRow.appendChild(clear);
+    board.appendChild(smallRow);
+  }
+
+  function onKanaTap(k){
+    queryBuffer += k;
+    searchInput.value = queryBuffer;
+    runSearch();
+  }
+  function onKanaBackspace(){
+    queryBuffer = queryBuffer.slice(0, -1);
+    searchInput.value = queryBuffer;
+    runSearch();
+  }
+  function onKanaClear(){
+    queryBuffer = '';
+    searchInput.value = '';
+    runSearch();
+  }
+  function runSearch(){
+    const q = queryBuffer.trim();
+    if (!q) {
+      candidateList.classList.remove('open');
+      typeRow.classList.remove('hidden');
+      renderBrowseList();
+      return;
+    }
+    browseList.classList.add('hidden');
+    hideResult();
+    renderCandidates(searchCandidates(q));
+  }
+
+  function buildTypeRow(){
+    typeRow.innerHTML = '';
+    const allChip = document.createElement('button');
+    allChip.type = 'button';
+    allChip.className = 'type-chip' + (activeType === null ? ' active' : '');
+    allChip.textContent = 'すべて';
+    allChip.onclick = () => { activeType = null; renderBrowseList(); buildTypeRow(); };
+    typeRow.appendChild(allChip);
+
+    TYPES.forEach(t => {
+      if (!DATA.some(c => c['種別'] === t)) return;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'type-chip' + (activeType === t ? ' active' : '');
+      chip.textContent = t;
+      chip.onclick = () => { activeType = t; renderBrowseList(); buildTypeRow(); };
+      typeRow.appendChild(chip);
+    });
+  }
+
+  function renderBrowseList(){
+    hideResult();
+    const list = (activeType ? DATA.filter(c => c['種別'] === activeType) : DATA)
+      .slice()
+      .sort((a,b) => (a['商品名略称']||'').localeCompare(b['商品名略称'], 'ja'));
+    browseList.innerHTML = '';
+    list.slice(0, 40).forEach(c => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'browse-item';
+      item.innerHTML = `<span class="cand-name">${escapeHtml(c['商品名略称'])}</span>${typeChipHtml(c['種別'])}`;
+      item.onclick = () => showResult(c);
+      browseList.appendChild(item);
+    });
+    if (list.length > 40) {
+      const more = document.createElement('div');
+      more.className = 'cand-empty';
+      more.textContent = `他 ${list.length - 40} 件… 検索窓で絞り込めます`;
+      browseList.appendChild(more);
+    }
+    browseList.classList.remove('hidden');
+  }
+
+  function escapeHtml(s){
+    return (s || '').toString()
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function searchCandidates(query){
+    const q = norm(query);
+    if (!q) return [];
+    // 前方一致優先、なければ部分一致（誤爆を避けるため前方一致を上位に）
+    const starts = [];
+    const includes = [];
+    DATA.forEach(c => {
+      const hitStart = c._n.startsWith(q) || c._r.some(r => r.startsWith(q));
+      const hitInc = c._n.includes(q) || c._f.includes(q) || c._r.some(r => r.includes(q));
+      if (hitStart) { starts.push(c); }
+      else if (hitInc) { includes.push(c); }
+    });
+    return starts.concat(includes).slice(0, 20);
+  }
+
+  // 種別ごとの色分け（装飾）
+  const TYPE_COLORS = {
+    '白カビ':'#8a7a55','青カビ':'#4a6b8a','ウォッシュ':'#b06a3b','フレッシュ':'#5a8a5f',
+    'ハード・セミハード':'#a5772e','シェーブル':'#7d7d7d','プロセス':'#8a5a3b',
+    'クロテッドクリーム':'#b05a7a','クラッカー&フード':'#96865a','グレーテッド等':'#6b7a8a'
+  };
+  function typeChipHtml(type){
+    const col = TYPE_COLORS[type] || '#7a6f64';
+    return `<span class="cand-type" style="color:${col};background:${col}1a;">${escapeHtml(type)}</span>`;
+  }
+
+  function renderCandidates(list){
+    candidateList.innerHTML = '';
+    if (list.length === 0) {
+      candidateList.innerHTML = '<div class="cand-empty">該当するチーズが見つかりませんでした。<br>濁点・小さい文字はなくても検索できます（例：「しえらーる」→ジェラール）</div>';
+      candidateList.classList.add('open');
+      return;
+    }
+    const head = document.createElement('div');
+    head.className = 'cand-count';
+    head.textContent = `${list.length}件みつかりました`;
+    candidateList.appendChild(head);
+    list.forEach(c => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'cand-item';
+      item.innerHTML = `<span class="cand-name">${escapeHtml(c['商品名略称'])}</span>${typeChipHtml(c['種別'])}`;
+      item.onclick = () => {
+        queryBuffer = c['商品名略称'];
+        searchInput.value = queryBuffer;
+        candidateList.classList.remove('open');
+        showResult(c);
+      };
+      candidateList.appendChild(item);
+    });
+    candidateList.classList.add('open');
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap') && !e.target.closest('.kana-board')) {
+      candidateList.classList.remove('open');
+    }
+  });
+
+  function wordsToTags(str){
+    return (str || '').split(/\s+/).filter(Boolean);
+  }
+
+  function showResult(c){
+    typeRow.classList.add('hidden');
+    browseList.classList.add('hidden');
+    candidateList.classList.remove('open');
+
+    const pairingTags = wordsToTags(c['料理ペアリング']);
+    const keywordTags = wordsToTags(c['ペアリングキーワード']);
+
+    resultCard.innerHTML = `
+      <div class="result-name">${escapeHtml(c['商品名略称'])}</div>
+      <div class="result-formal">${escapeHtml(c['正式商品名'] || '')}</div>
+      <div class="badge-row">
+        <span class="badge accent" style="background:${TYPE_COLORS[c['種別']] || 'var(--accent)'};">${escapeHtml(c['種別'])}</span>
+        <span class="badge">${escapeHtml(c['産地国'])}</span>
+        ${c['原料乳'] ? `<span class="badge">${escapeHtml(c['原料乳'])}乳</span>` : ''}
+      </div>
+      <div class="section-label">味わい</div>
+      <div class="flavor-text">${escapeHtml(c['味わい'])}</div>
+      <div class="section-label">こんな食べ方・料理と相性◎</div>
+      <div class="tag-cloud">
+        ${pairingTags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}
+      </div>
+      ${keywordTags.length ? `
+      <div class="section-label">関連キーワード</div>
+      <div class="keyword-cloud">
+        ${keywordTags.map(t => `<span class="kw">${escapeHtml(t)}</span>`).join('')}
+      </div>` : ''}
+      <button class="back-btn" id="backBtn">← 別のチーズを探す</button>
+    `;
+    resultCard.classList.remove('hidden');
+    document.getElementById('backBtn').onclick = () => {
+      queryBuffer = '';
+      searchInput.value = '';
+      hideResult();
+      typeRow.classList.remove('hidden');
+      renderBrowseList();
+    };
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function hideResult(){
+    resultCard.classList.add('hidden');
+    resultCard.innerHTML = '';
+  }
+
+  // 店頭kiosk向け: 無操作2分で最初の画面に戻る
+  const IDLE_MS = 120000;
+  let idleTimer = null;
+  function goHome(){
+    queryBuffer = '';
+    searchInput.value = '';
+    activeType = null;
+    hideResult();
+    candidateList.classList.remove('open');
+    typeRow.classList.remove('hidden');
+    buildTypeRow();
+    renderBrowseList();
+    window.scrollTo({top:0});
+  }
+  function resetIdle(){
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(goHome, IDLE_MS);
+  }
+  ['click','touchstart','scroll'].forEach(ev => document.addEventListener(ev, resetIdle, {passive:true}));
+
+  buildKanaBoard();
+  buildTypeRow();
+  renderBrowseList();
+  resetIdle();
+})();
+</script>
+</body>
+</html>
