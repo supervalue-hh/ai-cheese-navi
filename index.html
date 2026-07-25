@@ -310,8 +310,19 @@
     letter-spacing:.22em;margin-top:2px;
   }
   header .store{color:var(--sub);}
+  .header-corner{
+    position:absolute;top:14px;right:16px;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    z-index:6;
+  }
+  .mascot-img{
+    width:clamp(52px,9vw,72px);height:clamp(52px,9vw,72px);
+    border-radius:50%;object-fit:cover;object-position:top center;
+    border:2px solid var(--gold);
+    box-shadow:0 3px 10px rgba(0,0,0,.25);
+    background:#fff;
+  }
   .voice-toggle-btn{
-    position:absolute;top:16px;right:16px;
     font-size:12px;font-weight:700;white-space:nowrap;
     padding:7px 12px;border:1px solid var(--line);border-radius:20px;
     background:var(--card);color:var(--sub);cursor:pointer;
@@ -368,7 +379,10 @@
 <body>
 
 <header>
-  <button class="voice-toggle-btn" id="voiceToggleBtn" onclick="toggleVoice()">🔊 音声ON</button>
+  <div class="header-corner">
+    <img class="mascot-img" src="mascot.jpg" alt="チーズソムリエ" title="チーズソムリエ">
+    <button class="voice-toggle-btn" id="voiceToggleBtn" onclick="toggleVoice()">🔊 音声ON</button>
+  </div>
   <h1>AIチーズナビ</h1>
   <div class="en-sub">European Cheese Selection</div>
   <div class="store" id="storeName">店舗名</div>
