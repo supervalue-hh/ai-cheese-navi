@@ -131,6 +131,50 @@
   .pickup-card .pk-name{font-size:14px;font-weight:700;line-height:1.35;margin-bottom:6px;display:block;}
   .pickup-card .pk-flavor{font-size:11.5px;color:var(--sub);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
 
+  .mode-tabs{
+    width:100%;max-width:640px;
+    display:flex;gap:8px;margin-top:20px;
+  }
+  .mode-tab{
+    flex:1;padding:13px 0;
+    border-radius:14px;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    color:var(--sub);
+    font-size:15px;font-weight:700;
+    cursor:pointer;
+  }
+  .mode-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  .tag-groups{
+    width:100%;max-width:640px;
+    margin-top:8px;
+  }
+  .tag-group-label{
+    font-size:12px;color:var(--sub);font-weight:700;
+    margin:14px 4px 6px;letter-spacing:.05em;
+  }
+  .tag-group-chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag-chip{
+    padding:9px 16px;
+    border-radius:20px;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    color:var(--ink);
+    font-size:14px;
+    cursor:pointer;
+  }
+  .tag-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .tag-result-list{width:100%;max-width:640px;margin-top:16px;}
+  .tag-result-head{
+    font-size:13px;color:var(--sub);margin:0 4px 8px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .tag-result-head button{
+    background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;
+    text-decoration:underline;
+  }
+
   .gyo-row{
     width:100%;max-width:640px;
     display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
@@ -337,13 +381,23 @@
     <div class="pickup-row" id="pickupRow"></div>
   </div>
 
-  <div class="search-hint">チーズの名前の行と種類で絞り込めます。気になるチーズを選ぶと詳しくご紹介します</div>
+  <div class="mode-tabs" id="modeTabs">
+    <button type="button" class="mode-tab active" id="modeTabPairing">🍷 料理・飲み物から探す</button>
+    <button type="button" class="mode-tab" id="modeTabName">🧀 チーズ名から探す</button>
+  </div>
 
-  <div class="gyo-row" id="gyoRow"></div>
+  <div id="pairingMode">
+    <div class="search-hint">今の気分や、合わせたいものを選んでください</div>
+    <div class="tag-groups" id="tagGroups"></div>
+    <div class="tag-result-list" id="tagResultList"></div>
+  </div>
 
-  <div class="type-row" id="typeRow"></div>
-
-  <div class="browse-list" id="browseList"></div>
+  <div id="nameMode" class="hidden">
+    <div class="search-hint">チーズの名前の行と種類で絞り込めます</div>
+    <div class="gyo-row" id="gyoRow"></div>
+    <div class="type-row" id="typeRow"></div>
+    <div class="browse-list" id="browseList"></div>
+  </div>
 
   <div class="result-card hidden" id="resultCard"></div>
 </main>
@@ -356,7 +410,7 @@
 <script>
 (function(){
   const DATA = (typeof CHEESE_DATA !== 'undefined') ? CHEESE_DATA : [];
-  const BUILD_VER = '1.3.0';
+  const BUILD_VER = '1.4.0';
   const BUILD_TIME = '2026-07-20';
   document.getElementById('buildStamp').textContent = 'AIチーズナビ v' + BUILD_VER + ' / ' + BUILD_TIME;
 
@@ -403,6 +457,99 @@
   const resultCard = document.getElementById('resultCard');
   const pickupSection = document.getElementById('pickupSection');
   const pickupRow = document.getElementById('pickupRow');
+  const modeTabs = document.getElementById('modeTabs');
+  const modeTabPairing = document.getElementById('modeTabPairing');
+  const modeTabName = document.getElementById('modeTabName');
+  const pairingMode = document.getElementById('pairingMode');
+  const nameMode = document.getElementById('nameMode');
+  const tagGroups = document.getElementById('tagGroups');
+  const tagResultList = document.getElementById('tagResultList');
+
+  // 料理ペアリング/ペアリングキーワードの統制語彙をグループ分け（お客様が選びやすいように）
+  const TAG_GROUPS = [
+    { label: 'お酒', tags: ['赤ワイン','白ワイン','スパークリングワイン','デザートワイン','ポートワイン','ビール'] },
+    { label: 'パン・軽食', tags: ['バゲット','パン','クラッカー','サンドイッチ'] },
+    { label: '甘いもの', tags: ['はちみつ','ジャム','ドライフルーツ','デザート','スイーツ','チョコレート','フルーツ','りんご','洋梨','いちじく','スコーン'] },
+    { label: '飲みもの', tags: ['紅茶','コーヒー'] },
+    { label: '料理・おつまみ', tags: ['肉料理','魚介','サラダ','野菜','オリーブ','オリーブオイル','パスタ','ピザ','グラタン','フォンデュ','カレー','じゃがいも','リゾット','燻製料理','生ハム','サラミ','ナッツ','くるみ','おつまみ'] }
+  ];
+  let activeTag = null;
+  let activeMode = 'pairing';
+
+  function tagMatch(c, tag){
+    return wordsToTags(c['料理ペアリング']).includes(tag) || wordsToTags(c['ペアリングキーワード']).includes(tag);
+  }
+
+  function setMode(mode){
+    activeMode = mode;
+    hideResult();
+    modeTabPairing.classList.toggle('active', mode === 'pairing');
+    modeTabName.classList.toggle('active', mode === 'name');
+    pairingMode.classList.toggle('hidden', mode !== 'pairing');
+    nameMode.classList.toggle('hidden', mode !== 'name');
+    if (mode === 'name') renderBrowseList();
+  }
+  modeTabPairing.onclick = () => setMode('pairing');
+  modeTabName.onclick = () => setMode('name');
+
+  function buildTagGroups(){
+    tagGroups.innerHTML = '';
+    TAG_GROUPS.forEach(group => {
+      const validTags = group.tags.filter(t => DATA.some(c => tagMatch(c, t)));
+      if (!validTags.length) return;
+      const label = document.createElement('div');
+      label.className = 'tag-group-label';
+      label.textContent = group.label;
+      tagGroups.appendChild(label);
+      const row = document.createElement('div');
+      row.className = 'tag-group-chips';
+      validTags.forEach(t => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip' + (activeTag === t ? ' active' : '');
+        chip.textContent = t;
+        chip.onclick = () => {
+          activeTag = (activeTag === t) ? null : t;
+          buildTagGroups();
+          renderTagResults();
+        };
+        row.appendChild(chip);
+      });
+      tagGroups.appendChild(row);
+    });
+  }
+
+  function renderTagResults(){
+    hideResult();
+    if (!activeTag) { tagResultList.innerHTML = ''; return; }
+    const list = DATA.filter(c => tagMatch(c, activeTag))
+      .sort((a,b) => (a['商品名略称']||'').localeCompare(b['商品名略称'], 'ja'));
+    tagResultList.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'tag-result-head';
+    head.innerHTML = `<span>「${escapeHtml(activeTag)}」に合うチーズ ${list.length}件</span>`;
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.textContent = '選び直す';
+    clearBtn.onclick = () => { activeTag = null; buildTagGroups(); renderTagResults(); };
+    head.appendChild(clearBtn);
+    tagResultList.appendChild(head);
+    if (!list.length) {
+      tagResultList.innerHTML += '<div class="cand-empty">該当するチーズが見つかりませんでした</div>';
+      return;
+    }
+    const listWrap = document.createElement('div');
+    listWrap.className = 'browse-list';
+    list.forEach(c => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'browse-item';
+      item.innerHTML = `<span class="cand-name">${escapeHtml(c['商品名略称'])}</span>${typeChipHtml(c['種別'])}`;
+      item.onclick = () => showResult(c);
+      listWrap.appendChild(item);
+    });
+    tagResultList.appendChild(listWrap);
+  }
 
   // 「今月のおすすめ」枠。商品名略称で指定（月替わりで入れ替える想定。手動キュレーション）
   const PICKUP_NAMES = [
@@ -611,10 +758,10 @@
   }
 
   function showResult(c){
-    typeRow.classList.add('hidden');
-    gyoRow.classList.add('hidden');
+    modeTabs.classList.add('hidden');
+    pairingMode.classList.add('hidden');
+    nameMode.classList.add('hidden');
     pickupSection.classList.add('hidden');
-    browseList.classList.add('hidden');
 
     const pairingTags = wordsToTags(c['料理ペアリング']);
     const keywordTags = wordsToTags(c['ペアリングキーワード']);
@@ -655,10 +802,9 @@
 
     document.getElementById('backBtn').onclick = () => {
       hideResult();
-      typeRow.classList.remove('hidden');
-      gyoRow.classList.remove('hidden');
+      modeTabs.classList.remove('hidden');
       pickupSection.classList.remove('hidden');
-      renderBrowseList();
+      setMode(activeMode);
     };
     window.scrollTo({top:0, behavior:'smooth'});
   }
@@ -674,13 +820,15 @@
   function goHome(){
     activeType = null;
     activeGyo = null;
+    activeTag = null;
     hideResult();
-    typeRow.classList.remove('hidden');
-    gyoRow.classList.remove('hidden');
+    modeTabs.classList.remove('hidden');
     pickupSection.classList.remove('hidden');
     buildGyoRow();
     buildTypeRow();
-    renderBrowseList();
+    buildTagGroups();
+    renderTagResults();
+    setMode('pairing');
     window.scrollTo({top:0});
   }
   function resetIdle(){
@@ -693,7 +841,8 @@
   buildGyoRow();
   buildPickupRow();
   buildTypeRow();
-  renderBrowseList();
+  buildTagGroups();
+  setMode('pairing');
   resetIdle();
 })();
 </script>
