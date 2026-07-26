@@ -312,15 +312,25 @@
   header .store{color:var(--sub);}
   .header-corner{
     position:absolute;top:14px;right:16px;
-    display:flex;flex-direction:column;align-items:center;gap:6px;
     z-index:6;
   }
-  .mascot-img{
-    width:clamp(52px,9vw,72px);height:clamp(52px,9vw,72px);
-    border-radius:50%;object-fit:cover;object-position:top center;
-    border:2px solid var(--gold);
-    box-shadow:0 3px 10px rgba(0,0,0,.25);
-    background:#fff;
+  .hero-mascot{
+    width:100%;max-width:640px;
+    margin:18px auto 2px;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .hero-mascot img{
+    width:100%;max-width:340px;
+    border-radius:20px;
+    border:4px solid var(--gold);
+    box-shadow:0 10px 26px rgba(60,30,20,0.28);
+    display:block;
+  }
+  .hero-mascot .caption{
+    margin-top:10px;
+    font-family:var(--serif);font-style:italic;
+    color:var(--gold);font-size:clamp(13px,2.2vw,16px);
+    letter-spacing:.06em;text-align:center;
   }
   .voice-toggle-btn{
     font-size:12px;font-weight:700;white-space:nowrap;
@@ -380,7 +390,6 @@
 
 <header>
   <div class="header-corner">
-    <img class="mascot-img" src="mascot.jpg" alt="チーズソムリエ" title="チーズソムリエ">
     <button class="voice-toggle-btn" id="voiceToggleBtn" onclick="toggleVoice()">🔊 音声ON</button>
   </div>
   <h1>AIチーズナビ</h1>
@@ -390,6 +399,11 @@
 </header>
 
 <main>
+  <div class="hero-mascot">
+    <img src="mascot.jpg" alt="チーズソムリエ 菅原">
+    <div class="caption">Cheese Sommelier 菅原がご案内します</div>
+  </div>
+
   <div class="pickup-section" id="pickupSection">
     <div class="pickup-title">今月のおすすめチーズ<span class="pt-en">Monthly Selection</span></div>
     <div class="pickup-row" id="pickupRow"></div>
@@ -424,7 +438,7 @@
 <script>
 (function(){
   const DATA = (typeof CHEESE_DATA !== 'undefined') ? CHEESE_DATA : [];
-  const BUILD_VER = '1.4.1';
+  const BUILD_VER = '1.5.0';
   const BUILD_TIME = '2026-07-20';
   document.getElementById('buildStamp').textContent = 'AIチーズナビ v' + BUILD_VER + ' / ' + BUILD_TIME;
 
